@@ -1,133 +1,83 @@
-var express = require("express");
-var mongojs = require("mongojs");
-// var request = require("request");
 var cheerio = require("cheerio");
 var axios = require("axios");
-var mongoose = require("mongoose");
-const db = require("./models/Article.js");
-require('make-promises-safe');
-
-
+var MONGOLAB_IVORY_URI = process.env.MONGOLAB_IVORY_URI;
+var express = require("express");
 var app = express();
+var mongoose = require("mongoose");
+const Article = require("./models/Article");
+
+//Test
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/mongoHeadlines";
+mongoose.connect("mongodb://localhost/scraperdb", { useNewUrlParser: true });
 
-mongoose.connect(MONGODB_URI), {
-    useMongoClient: true,
-};
-// mongoose.connect("mongodb://localhost/mongoHeadlines", { useNewUrlParser: true });
-// Make public a static folder
-app.use(express.static("public"));
+app.use(express.static('public'));
 
-var databaseUrl = "mongodb://localhost:27017";
-var MongoClient = require('mongodb').MongoClient;
- 
-// Make a connection to MongoDB Service
-// MongoClient.connect(databaseUrl, function(err, db) {
-//   if (err) throw err;
-//   console.log("Connected to MongoDB!");
-//   db.close();
-// });
-var results = [];
-// var db = mongoose.connection;
-// db.on('error', console.error.bind(console, 'connection error:'));
- 
-// db.once('open', function() {
-//   console.log("Connection Successful!");
-// });
+//Test
 
+axios.get("https://chicago.suntimes.com/").then(function(response) {
 
-var database= mongojs(databaseUrl, results);
-db.on("error", function (error) {
-    console.log("Database Error:", error);
+  
+  var $ = cheerio.load(response.data);
+
+  var results = [];
+
+  
+  $("h2").each(function(i, element) {
+
+    var title = $(element).text();
+
+    var link = $(element).children().attr("href");
+
+    results.push({
+      title: title,
+      link: link
+    });
+  });
+
+ console.log(results);
+  if (results.push){
+    Article.findByIdAndUpdate(
+      { title: response.data.title },
+      { $push: { "title": response.data.show } }, { new: true }
+  ).then(function (dbResponse) {
+      console.log(dbResponse);
+      response.json(res.data);
+  }).catch(function (err) {
+      console.log(err);
+      res.sendStatus(500)
+  });
+
+} else {
+  response.json({ "error": "true" });
+}
 });
+  
 
-app.get("/", function (req, res) {
-    res.sendFile(path.join(__dirname + "./public/index.html"));
-});
-axios.get("https://chicago.suntimes.com/").then(function (response) {
-    var $ = cheerio.load(response.data);
-
-    $("article").each(function (i, element) {
-        var result = {};
-
-        result.title = $(this)
-            .children("a")
-            .text();
-        result.link = $(this)
-            .children("a")
-            .attr("href");
-
-        // var title = $(element).children().text();
-        // var link = $(element).find("a").attr("href");
-        
-        //Create new article from results
-        (db.Article.create(result)
-        .then(function(dbArticle) {
-          // View the added result in the console
-          console.log(dbArticle);
-        })
-        .catch(function(err) {
-          // If an error occurred, log it
-          console.log("this will not be printed");
-        })
-    )});
-
-    
-
-    //     results.push({
-    //       title: title,
-    //       link: link,
-
-    // });
-    console.log(results);
-    res.send("/articles.html");
-});
-
-
-// app.get("/", function (req, res) {
-//     res.send(index.html);
-// });
-
-
-// app.get("/all", function (req, res) {
-
-//     db.scrapedData.find({}, function (error, found) {
-
-//         if (error) {
-//             console.log(error);
-//         }
-//         else {
-//             res.json(found);
-//         }
+// app.get("/all", function(req, res) {
+//     // Query: In our database, go to the articles collection, then "find" everything
+//     db.scrapedData.find({}, function(error, found) {
+//       // Log any errors if the server encounters one
+//       if (error) {
+//         console.log(error);
+//       }
+//       // Otherwise, send the result of this query to the browser
+//       else {
+//         res.json(found);
+//       }
 //     });
-// });
-// });
-
-// app.get("/scrape", function (req, res) {
-
-//     if (title && link) {
-//         db.scrapedData.save({
-//             title: title,
-//             link: link
-//         },
-//             function (err, saved) {
-//                 if (err) {
-
-//                     console.log(err);
-//                 }
-//                 else {
-
-//                     console.log(saved);
-//                 }
-//             });
-//     }
-// });
-
-
-
-app.listen(27017, function () {
-    console.log("App running on port 27017!");
-});
+//   });
+//   app.get("/scrape", function(req, res) {
+//     // Query: In our database, go to the animals collection, then "find" everything,
+//     // but this time, sort it by name (1 means ascending order)
+//     db.scrapedData.find().sort({ date: 1 }, function(error, found) {
+//       // Log any errors if the server encounters one
+//       if (error) {
+//         console.log(error);
+//       }
+//       // Otherwise, send the result of this query to the browser
+//       else {
+//         res.json(found);
+//       }
+//     })});
